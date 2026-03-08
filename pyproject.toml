@@ -1,0 +1,14 @@
+[project]
+name = "pyrcheevos"
+version = "0.1.0"
+description = "Python bindings and CLI for the rcheevos RetroAchievements hashing library"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+pyrcheevos = "pyrcheevos.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
