@@ -2,26 +2,27 @@
 
 Python bindings and command-line interface for [rcheevos](https://github.com/RetroAchievements/rcheevos), the C library used to generate ROM hashes for [RetroAchievements](https://retroachievements.org). Games whose hashes match the RetroAchievements database are eligible for achievements.
 
-## Requirements
+## Installation
 
-- Python 3.11 or later
-- GCC and zlib development headers (to build the shared library)
-- The `rcheevos` source tree cloned into the project root as `rcheevos/`
+Pre-compiled wheels are published to PyPI for Linux (x86_64, aarch64) and macOS (x86_64, arm64):
 
-## Building the shared library
+```sh
+pip install pyrcheevos
+```
 
-Before using pyrcheevos, compile `librcheevos.so`:
+## Building from source
+
+You will need GCC and zlib development headers. The rcheevos C sources must also be present in `rcheevos/` (see below). Then:
+
+```sh
+git clone https://github.com/RetroAchievements/rcheevos.git rcheevos
+pip install -e .
+```
+
+`pip install -e .` invokes `setup.py`, which compiles `librcheevos.so` (or `.dylib` on macOS) and places it inside the package automatically. Alternatively you can compile it manually with:
 
 ```sh
 make
-```
-
-The resulting `librcheevos.so` must be present in either the package directory or the project root. pyrcheevos will look in both locations automatically.
-
-## Installation
-
-```sh
-pip install -e .
 ```
 
 ## Command-line usage

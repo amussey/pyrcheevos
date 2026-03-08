@@ -8,7 +8,16 @@ dependencies = []
 
 [project.scripts]
 pyrcheevos = "pyrcheevos.cli:main"
+rcheevos = "pyrcheevos.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyrcheevos*"]
+
+# Package data: include the compiled shared library when it is present.
+[tool.setuptools.package-data]
+pyrcheevos = ["librcheevos.so", "librcheevos.dylib", "rcheevos.dll"]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"

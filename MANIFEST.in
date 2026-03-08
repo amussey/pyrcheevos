@@ -1,0 +1,12 @@
+# Include the rcheevos C sources so that sdist recipients can compile the
+# shared library locally (pip install from sdist invokes setup.py build_py).
+recursive-include rcheevos/src *.c *.h
+recursive-include rcheevos/include *.h
+include rcheevos/LICENSE
+include rcheevos/README.md
+
+# Project files
+include Makefile
+include README.md
+include pyproject.toml
+include setup.py

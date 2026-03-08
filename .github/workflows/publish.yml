@@ -1,0 +1,139 @@
+# Build platform-specific wheels and publish to PyPI.
+#
+# Trigger: pushing a version tag (e.g. v0.1.0) or manually via workflow_dispatch.
+#
+# Wheel matrix:
+#   Linux  - manylinux_2_28 x86_64, aarch64  (via cibuildwheel + QEMU)
+#   macOS  - x86_64 and arm64
+#
+# Windows is intentionally excluded for now; see docs/packaging.md for context.
+#
+# Secrets required:
+#   PYPI_API_TOKEN - a PyPI API token scoped to the pyrcheevos project.
+#   Set it under: repo -> Settings -> Secrets and variables -> Actions.
+
+name: Build and publish
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build wheels
+  # ---------------------------------------------------------------------------
+  build_wheels:
+    name: Build wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+
+    steps:
+      - name: Checkout pyrcheevos
+        uses: actions/checkout@v4
+
+      # rcheevos is gitignored and not a submodule; clone it at the pinned tag.
+      # See docs/packaging.md for the rationale and upgrade instructions.
+      - name: Clone rcheevos v12.3.0
+        run: |
+          git clone --depth 1 --branch v12.3.0 \
+            https://github.com/RetroAchievements/rcheevos.git rcheevos
+
+      # ARM64 Linux wheels are built via QEMU emulation.
+      - name: Set up QEMU (Linux ARM64)
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.22
+        env:
+          # Build for CPython 3.11+ only; skip PyPy.
+          CIBW_SKIP: "pp* cp36* cp37* cp38* cp39* cp310*"
+
+          # Linux: build for x86_64 and aarch64.
+          CIBW_ARCHS_LINUX: "x86_64 aarch64"
+
+          # macOS: build universal2 (covers both Intel and Apple Silicon).
+          CIBW_ARCHS_MACOS: "x86_64 arm64"
+
+          # Ensure zlib is present on Linux (it always is in manylinux images).
+          CIBW_BEFORE_BUILD_LINUX: "yum install -y zlib-devel || apt-get install -y zlib1g-dev || true"
+
+          # macOS ships zlib in the SDK; nothing extra needed.
+          CIBW_BEFORE_BUILD_MACOS: ""
+
+          # Run a quick smoke-test after each wheel is built.
+          CIBW_TEST_COMMAND: "pyrcheevos version"
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  # ---------------------------------------------------------------------------
+  # Build the source distribution
+  # ---------------------------------------------------------------------------
+  build_sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone rcheevos v12.3.0
+        run: |
+          git clone --depth 1 --branch v12.3.0 \
+            https://github.com/RetroAchievements/rcheevos.git rcheevos
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build frontend
+        run: pip install build
+
+      - name: Build sdist
+        run: python -m build --sdist
+
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  # ---------------------------------------------------------------------------
+  # Publish to PyPI (only on tag pushes)
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Publish to PyPI
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: pypi
+      url: https://pypi.org/project/pyrcheevos/
+    permissions:
+      id-token: write  # required for trusted publishing
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Remove this line once PyPI Trusted Publishing is configured.
+          # See: https://docs.pypi.org/trusted-publishers/
+          password: ${{ secrets.PYPI_API_TOKEN }}
