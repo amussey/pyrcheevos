@@ -1,4 +1,4 @@
-# Build platform-specific wheels and publish to PyPI.
+# Build platform-specific wheels and attach them to a GitHub Release.
 #
 # Trigger: pushing a version tag (e.g. v0.1.0) or manually via workflow_dispatch.
 #
@@ -8,9 +8,8 @@
 #
 # Windows is intentionally excluded for now; see docs/packaging.md for context.
 #
-# Secrets required:
-#   PYPI_API_TOKEN - a PyPI API token scoped to the pyrcheevos project.
-#   Set it under: repo -> Settings -> Secrets and variables -> Actions.
+# PyPI publishing is stubbed out below. Uncomment the publish_pypi job and add the
+# PYPI_API_TOKEN repository secret (or configure Trusted Publishing on PyPI).
 
 name: Build and publish
 
@@ -111,18 +110,15 @@ jobs:
           path: dist/*.tar.gz
 
   # ---------------------------------------------------------------------------
-  # Publish to PyPI (only on tag pushes)
+  # Create a GitHub Release and attach all build artifacts
   # ---------------------------------------------------------------------------
-  publish:
-    name: Publish to PyPI
+  release_github:
+    name: Create GitHub Release
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    environment:
-      name: pypi
-      url: https://pypi.org/project/pyrcheevos/
     permissions:
-      id-token: write  # required for trusted publishing
+      contents: write  # required to create releases and upload assets
 
     steps:
       - name: Download all artifacts
@@ -131,9 +127,36 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Create release and upload assets
+        uses: softprops/action-gh-release@v2
         with:
-          # Remove this line once PyPI Trusted Publishing is configured.
-          # See: https://docs.pypi.org/trusted-publishers/
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          files: dist/*
+          generate_release_notes: true
+
+  # ---------------------------------------------------------------------------
+  # Publish to PyPI (disabled - uncomment when ready, see docs/packaging.md)
+  # ---------------------------------------------------------------------------
+  # publish_pypi:
+  #   name: Publish to PyPI
+  #   needs: [build_wheels, build_sdist]
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+  #   environment:
+  #     name: pypi
+  #     url: https://pypi.org/project/pyrcheevos/
+  #   permissions:
+  #     id-token: write  # required for trusted publishing
+  #
+  #   steps:
+  #     - name: Download all artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         path: dist
+  #         merge-multiple: true
+  #
+  #     - name: Publish to PyPI
+  #       uses: pypa/gh-action-pypi-publish@release/v1
+  #       with:
+  #         # Remove this line once PyPI Trusted Publishing is configured.
+  #         # See: https://docs.pypi.org/trusted-publishers/
+  #         password: ${{ secrets.PYPI_API_TOKEN }}
